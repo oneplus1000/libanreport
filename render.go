@@ -1,6 +1,8 @@
 package libanreport
 
 import (
+	"os"
+
 	"github.com/oneplus1000/errord"
 	"github.com/oneplus1000/libanreport/customtextbreak"
 	"github.com/signintech/pdft/render"
@@ -44,7 +46,35 @@ func convertUnit(v float64) float64 {
 	return v * 72 / 25.4
 }
 
-func newRender(tmplPDFPath string, finfos render.FieldInfos) (*render.Render, error) {
+func newRender(tmpl Tmpl, finfos render.FieldInfos) (*render.Render, error) {
+	var tmplPDFPath string
+	var tmpFile *os.File
+
+	if tmpl.embedFS != nil {
+		pdfData, err := tmpl.embedFS.ReadFile(tmpl.tmplPDFPath)
+		if err != nil {
+			return nil, errord.Errorf("ReadFile PDF from embed error: %v", err)
+		}
+
+		tmpFile, err = os.CreateTemp("", "tmpl_*.pdf")
+		if err != nil {
+			return nil, errord.Errorf("CreateTemp PDF error: %v", err)
+		}
+		defer os.Remove(tmpFile.Name())
+		defer tmpFile.Close()
+
+		_, err = tmpFile.Write(pdfData)
+		if err != nil {
+			return nil, errord.Errorf("Write temp PDF file error: %v", err)
+		}
+		tmpFile.Close()
+
+		tmplPDFPath = tmpFile.Name()
+
+	} else {
+		tmplPDFPath = tmpl.tmplPDFPath
+	}
+
 	rd, err := render.NewRender(tmplPDFPath, finfos)
 	if err != nil {
 		return nil, errord.Errorf("render.NewRender error: %v", err)

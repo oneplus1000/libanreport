@@ -60,17 +60,43 @@ func GenPdf(
 		finfos = append(finfos, finfo)
 	}
 
-	rdr, err := newRender(tmpl.tmplPDFPath, finfos)
+	rdr, err := newRender(tmpl, finfos)
 	if err != nil {
 		return errord.Errorf("newRender error: %w", err)
 	}
 
 	//add font
 	for _, f := range tmpl.tmplJSON.Fonts {
-		fontpath := filepath.Join(tmpl.tmplFolderPath, f.TTF)
-		err = rdr.AddFont(f.Name, fontpath)
-		if err != nil {
-			return errord.Errorf("AddFont error: %w", err)
+		if tmpl.embedFS != nil {
+			fontpath := filepath.Join(tmpl.embedPath, f.TTF)
+			fontData, err := tmpl.embedFS.ReadFile(fontpath)
+			if err != nil {
+				return errord.Errorf("ReadFile from embed error: %w", err)
+			}
+
+			tmpFile, err := os.CreateTemp("", f.Name+"_*.ttf")
+			if err != nil {
+				return errord.Errorf("CreateTemp error: %w", err)
+			}
+			defer os.Remove(tmpFile.Name())
+			defer tmpFile.Close()
+
+			_, err = tmpFile.Write(fontData)
+			if err != nil {
+				return errord.Errorf("Write temp font file error: %w", err)
+			}
+			tmpFile.Close()
+
+			err = rdr.AddFont(f.Name, tmpFile.Name())
+			if err != nil {
+				return errord.Errorf("AddFont error: %w", err)
+			}
+		} else {
+			fontpath := filepath.Join(tmpl.tmplFolderPath, f.TTF)
+			err = rdr.AddFont(f.Name, fontpath)
+			if err != nil {
+				return errord.Errorf("AddFont error: %w", err)
+			}
 		}
 	}
 
@@ -171,6 +197,19 @@ func ReadfontsJSON(path string) ([]FontOverrideJSON, error) {
 	return fontoverrides, nil
 }
 
+func ReadfontsJSONFromEmbedFS(embedFS embed.FS, embedPath string) ([]FontOverrideJSON, error) {
+	d, err := embedFS.ReadFile(embedPath)
+	if err != nil {
+		return nil, ErrFileNotFound
+	}
+	var fontoverrides []FontOverrideJSON
+	err = json.Unmarshal(d, &fontoverrides)
+	if err != nil {
+		return nil, errord.Errorf("error unmarshalling font overrides from embed: %w", err)
+	}
+	return fontoverrides, nil
+}
+
 func ReadTmplDir(path string) (Tmpl, error) {
 
 	folderName := filepath.Base(path)
@@ -186,6 +225,25 @@ func ReadTmplDir(path string) (Tmpl, error) {
 		folderName:     folderName,
 		tmplJSON:       &tmplJson,
 		tmplPDFPath:    tmplPdfPath,
+	}, nil
+}
+
+func ReadTmplDirFromEmbedFS(embedFS embed.FS, embedPath string) (Tmpl, error) {
+	folderName := filepath.Base(embedPath)
+	tmplJsonPath := filepath.Join(embedPath, "tmpl.json")
+	tmplPdfPath := filepath.Join(embedPath, "tmpl.pdf")
+
+	tmplJson, err := parseTmplJSONFromEmbedFS(embedFS, tmplJsonPath)
+	if err != nil {
+		return Tmpl{}, errord.Errorf("error reading tmpl.json from embed: %w", err)
+	}
+	return Tmpl{
+		tmplFolderPath: embedPath,
+		folderName:     folderName,
+		tmplJSON:       &tmplJson,
+		tmplPDFPath:    tmplPdfPath,
+		embedFS:        &embedFS,
+		embedPath:      embedPath,
 	}, nil
 }
 
@@ -221,6 +279,19 @@ func RemoveSpecialRune(txt string) string {
 
 func parseTmplJSON(path string) (TmplJSON, error) {
 	data, err := os.ReadFile(path)
+	if err != nil {
+		return TmplJSON{}, err
+	}
+	var objs TmplJSON
+	err = json.Unmarshal(data, &objs)
+	if err != nil {
+		return TmplJSON{}, err
+	}
+	return objs, nil
+}
+
+func parseTmplJSONFromEmbedFS(embedFS embed.FS, path string) (TmplJSON, error) {
+	data, err := embedFS.ReadFile(path)
 	if err != nil {
 		return TmplJSON{}, err
 	}

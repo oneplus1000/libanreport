@@ -4,3 +4,5 @@ github.com/oneplus1000/errord v0.0.2 h1:Qiz3jc/YjGTj2EvngdbTvmiXXoUkEJA/L6BZWcrC
 github.com/oneplus1000/errord v0.0.2/go.mod h1:gyz4BK+Vq8XoKKVNtU8guNmaRtKejMdg5luwRU5Snr0=
 github.com/signintech/pdft v0.6.3 h1:wgUsFdnwVsSL5qCzINpw/0wLEDF9mXzh9y/RRW2Sac4=
 github.com/signintech/pdft v0.6.3/go.mod h1:rQHl1GS7anncQpDQQw+RTMsYBKbxPBzpYRylf6egiI4=
+github.com/signintech/pdft v0.7.0 h1:+iTDkXsdWudpovmATinFSheKd6l7fftTFqQxH1y5AOY=
+github.com/signintech/pdft v0.7.0/go.mod h1:rQHl1GS7anncQpDQQw+RTMsYBKbxPBzpYRylf6egiI4=

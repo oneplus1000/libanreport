@@ -1,5 +1,9 @@
 package libanreport
 
+import (
+	"embed"
+)
+
 // TmplJSON tmpl.json
 type TmplJSON struct {
 	Fonts  []FontJSON
@@ -74,4 +78,6 @@ type Tmpl struct {
 	folderName     string
 	tmplPDFPath    string
 	tmplJSON       *TmplJSON
+	embedFS        *embed.FS
+	embedPath      string
 }
