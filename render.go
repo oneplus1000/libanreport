@@ -2,11 +2,46 @@ package libanreport
 
 import (
 	"os"
+	"sync"
 
 	"github.com/oneplus1000/errord"
 	"github.com/oneplus1000/libanreport/customtextbreak"
 	"github.com/signintech/pdft/render"
 )
+
+var (
+	sharedThaiTextBreak   *customtextbreak.ThaiTextBreak
+	sharedThaiTextBreakMu sync.RWMutex
+)
+
+func getThaiTextBreaker() (*customtextbreak.ThaiTextBreak, error) {
+	sharedThaiTextBreakMu.RLock()
+	if sharedThaiTextBreak != nil {
+		defer sharedThaiTextBreakMu.RUnlock()
+		return sharedThaiTextBreak, nil
+	}
+	sharedThaiTextBreakMu.RUnlock()
+
+	sharedThaiTextBreakMu.Lock()
+	defer sharedThaiTextBreakMu.Unlock()
+
+	if sharedThaiTextBreak != nil {
+		return sharedThaiTextBreak, nil
+	}
+
+	thbk := customtextbreak.NewThaiTextBreak()
+	fd, err := fdLexitron.Open("customtextbreak/thaidict/lexitron.txt")
+	if err != nil {
+		return nil, errord.Errorf("fdLexitron.Open error: %v", err)
+	}
+	defer fd.Close()
+	if err := thbk.LoadFromReader(fd); err != nil {
+		return nil, errord.Errorf("thbk.Load error: %v", err)
+	}
+
+	sharedThaiTextBreak = thbk
+	return sharedThaiTextBreak, nil
+}
 
 func bindFieldInfo(f *FieldJSON, finfo *render.FieldInfo) {
 	if f.Key != nil {
@@ -80,17 +115,9 @@ func newRender(tmpl Tmpl, finfos render.FieldInfos) (*render.Render, error) {
 		return nil, errord.Errorf("render.NewRender error: %v", err)
 	}
 	//rd.SetTextBreaker(textbreak.BasicTextbreak{})
-	thbk := customtextbreak.NewThaiTextBreak()
-
-	fd, err := fdLexitron.Open("customtextbreak/thaidict/lexitron.txt")
+	thbk, err := getThaiTextBreaker()
 	if err != nil {
-		return nil, errord.Errorf("fdLexitron.Open error: %v", err)
-	}
-	defer fd.Close()
-
-	err = thbk.LoadFromReader(fd)
-	if err != nil {
-		return nil, errord.Errorf("thbk.Load error: %v", err)
+		return nil, err
 	}
 	rd.SetTextBreaker(thbk)
 	return rd, nil
